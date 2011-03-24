@@ -160,7 +160,8 @@ get_pid(Opts) ->
         undefined -> os:getpid();
         Atom when is_atom(Atom) -> atom_to_list(Atom);
         List when is_list(List) -> List;
-        Binary when is_binary(Binary) -> Binary
+        Binary when is_binary(Binary) -> Binary;
+        Integer when is_integer(Integer) -> integer_to_list(Integer)
     end.
 
 atom_to_level(emergency) -> 0; % system is unusable
