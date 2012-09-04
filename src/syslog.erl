@@ -28,7 +28,7 @@
          handle_info/2, terminate/2, code_change/3]).
 
 %% api callbacks
--export([start_link/0, start_link/3, send/1, send/2, send/3]).
+-export([start_link/0, start_link/3, send/1, send/2, send/3, multi_send/2]).
 
 -record(state, {socket, address, port}).
 
@@ -52,14 +52,22 @@ send(Name, Msg) when is_atom(Name), is_list(Msg) ->
     send(Name, Msg, []).
 
 send(Name, Msg, Opts) when is_atom(Name), is_list(Msg), is_list(Opts) ->
+    gen_server:cast(Name, {send, [msg({Msg, Opts})]}).
+
+multi_send(Name, Msgs) ->
+    gen_server:cast(Name, {send, lists:map(fun msg/1, Msgs)}).
+
+msg({Msg, Opts}) ->
     Level    = get_level(Opts),
     Facility = get_facility(Opts),
     Priority = get_priority(Level, Facility),
     Ident    = get_ident(Opts),
     Pid      = get_pid(Opts),
 
-    Packet = ["<", Priority, "> ", Ident, "[", Pid, "]: ", Msg, "\n"],
-    gen_server:cast(Name, {send, iolist_to_binary(Packet)}).
+    ["<", Priority, "> ", Ident, "[", Pid, "]: ", Msg, "\n"].
+
+
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -85,54 +93,25 @@ init([Host, Port]) ->
             {stop, Reason}
     end.
 
-%%--------------------------------------------------------------------
-%% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
-%%                                      {reply, Reply, State, Timeout} |
-%%                                      {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, Reply, State} |
-%%                                      {stop, Reason, State}
-%% Description: Handling call messages
-%%--------------------------------------------------------------------
+
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
-%%--------------------------------------------------------------------
-%% Function: handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
-%% Description: Handling cast messages
-%%--------------------------------------------------------------------
-handle_cast({send, Packet}, #state{socket=Socket, address=Address, port=Port}=State) when is_binary(Packet) ->
-    gen_udp:send(Socket, Address, Port, Packet),
-    {noreply, State};
 
-handle_cast(_Msg, State) ->
+handle_cast({send, Packets}, State) ->
+    lists:foreach(fun (Packet) ->
+                          gen_udp:send(State#state.socket, State#state.address,
+                                       State#state.port, Packet)
+                  end, Packets),
     {noreply, State}.
 
-%%--------------------------------------------------------------------
-%% Function: handle_info(Info, State) -> {noreply, State} |
-%%                                       {noreply, State, Timeout} |
-%%                                       {stop, Reason, State}
-%% Description: Handling all non call/cast messages
-%%--------------------------------------------------------------------
+
 handle_info(_Info, State) ->
     {noreply, State}.
 
-%%--------------------------------------------------------------------
-%% Function: terminate(Reason, State) -> void()
-%% Description: This function is called by a gen_server when it is about to
-%% terminate. It should be the opposite of Module:init/1 and do any necessary
-%% cleaning up. When it returns, the gen_server terminates with Reason.
-%% The return value is ignored.
-%%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
     ok.
 
-%%--------------------------------------------------------------------
-%% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% Description: Convert process state when code is changed
-%%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
