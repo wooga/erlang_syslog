@@ -57,16 +57,6 @@ send(Name, Msg, Opts) when is_atom(Name), is_list(Msg), is_list(Opts) ->
 multi_send(Name, Msgs) ->
     gen_server:cast(Name, {send, lists:map(fun msg/1, Msgs)}).
 
-msg({Msg, Opts}) ->
-    Level    = get_level(Opts),
-    Facility = get_facility(Opts),
-    Priority = get_priority(Level, Facility),
-    Ident    = get_ident(Opts),
-    Pid      = get_pid(Opts),
-
-    ["<", Priority, "> ", Ident, "[", Pid, "]: ", Msg, "\n"].
-
-
 
 
 %%====================================================================
@@ -115,9 +105,26 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+msg({Msg, Opts})->
+    Level    = get_level(Opts),
+    Facility = get_facility(Opts),
+    Priority = get_priority(Level, Facility),
+    Host     = get_host(Opts),
+    Ident    = get_ident(Opts),
+    Pid      = get_pid(Opts),
+    msg(Priority, Host, Ident, Pid, Msg).
+
+msg(Priority, undefined, Ident, Pid, Msg) ->
+    ["<", Priority, "> ", Ident, "[", Pid, "]: ", Msg, "\n"];
+msg(Priority, Host, Ident, Pid, Msg) ->
+    ["<", Priority, ">", Host, " ", Ident, "[", Pid, "]: ", Msg, "\n"].
+
+
 get_level(Opts) ->
     atom_to_level(proplists:get_value(level, Opts)).
 
@@ -126,6 +133,14 @@ get_facility(Opts) ->
 
 get_priority(Level, Facility) ->
     integer_to_list(Level + Facility).
+
+get_host(Opts) ->
+    case proplists:get_value(host, Opts) of
+        undefined -> undefined;
+        Atom when is_atom(Atom) -> atom_to_list(Atom);
+        List when is_list(List) -> List;
+        Binary when is_binary(Binary) -> Binary
+    end.
 
 get_ident(Opts) ->
     case proplists:get_value(ident, Opts) of
