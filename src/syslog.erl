@@ -54,6 +54,8 @@ send(Name, Msg) when is_atom(Name), is_list(Msg) ->
 send(Name, Msg, Opts) when is_atom(Name), is_list(Msg), is_list(Opts) ->
     gen_server:cast(Name, {send, [msg({Msg, Opts})]}).
 
+multi_send(_Name, []) ->
+    ok;
 multi_send(Name, Msgs) ->
     gen_server:cast(Name, {send, lists:map(fun msg/1, Msgs)}).
 
