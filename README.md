@@ -9,9 +9,9 @@ Ensure that syslogd has udp sockets enabled:
     
 ### Log
 
-    0> application:start(syslog).
-    ok
-    1> syslog:send(wombat, info, "happy").
+    0> {ok, Pid} = syslog:start_link().
+    {ok, <0.74.0>}
+    1> syslog:send("my message", []).
     ok
     
 ### Logged
